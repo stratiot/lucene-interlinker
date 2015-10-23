@@ -12,7 +12,7 @@ public class InterlinkingRequest {
 	
 	InterlinkingRequest(String mode, Map <String, String> parameters){
 		this.mode = mode;
-		if (this.mode.equals("search")){
+		if (this.mode.equals("search") || this.mode.equals("like")){
 			this.searchTerm = parameters.get("searchTerm");
 			this.referenceDataset = parameters.get("referenceDataset");
 			this.file = null;

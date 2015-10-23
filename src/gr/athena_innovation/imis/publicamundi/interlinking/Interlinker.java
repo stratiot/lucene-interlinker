@@ -54,19 +54,20 @@ public class Interlinker extends HttpServlet {
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		// TODO Auto-generated method stub
+		/*
 		System.out.println("We have a proud GET!");
 		response.setContentType("text/html");
 		PrintWriter out = response.getWriter();
 
 		out.println("<title>Response</title>" +  "<body bgcolor=FFFFFF>");
 		out.println("<h3>We have a proud GET!</h3>");
+		*/
 	}
 
 	/**
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		System.out.println(request.getContentLength());
 		byte[] jsonData = new byte[request.getContentLength()];
 		InputStream sis = request.getInputStream();
         BufferedInputStream bis = new BufferedInputStream(sis);
@@ -76,6 +77,10 @@ public class Interlinker extends HttpServlet {
         
         
         bis.read(jsonData, 0, jsonData.length);
+        
+    	int responseStatusCode = -1;
+    	String responseMessage = null;
+    	
         try{
         	// Parsing Request
         	this.request = this.parseRequest(jsonData);
@@ -87,20 +92,53 @@ public class Interlinker extends HttpServlet {
 						this.request.getIndexField());
         		
         		// Creating response
-        		String message = "File '" + this.request.getFile() + "' has been succesfully indexed.";
-        		this.writeResponse(writer, this.request.getMode(), message);
+        		responseStatusCode = 0;
+        		responseMessage = "File '" + this.request.getFile() + "' has been succesfully indexed.";
+        		this.response = new InterlinkingResponse(responseStatusCode, responseMessage);
+        		this.response.writeResponse(writer, this.request.getMode());
+        		//this.writeResponse(writer, this.request.getMode(), message);
         	} 
         	//Searching Data
         	else if(this.request.getMode().equals("search")){
         		CSV_Table results = this.searchSimilar(this.request.getReferenceDataset(),
-        				this.request.getSearchTerm());
+        				this.request.getSearchTerm(), this.request.getMode());
 
-        		// Creating response
-        		this.writeResponse(writer, this.request.getMode(), results);
+        		// Creating response 
+        		responseStatusCode = 1;
+        		if (results.getRecords().size() > 0){
+        			if(results.getRecords().size() == 1)
+        				responseMessage = "One result was found.";
+        			else
+        				responseMessage = results.getRecords().size() + " were results found.";
+        				
+        		} else{
+        			responseMessage = "No results were found.";
+        		}
+        			
+        		this.response = new InterlinkingResponse(responseStatusCode, responseMessage, results);
+        		this.response.writeResponse(writer, this.request.getMode());
+        		//this.writeResponse(writer, this.request.getMode(), results);
         	} 
-        	// Searching Data using Wildcard
-        	else if(this.request.getMode().equals("wildcard_search")){
+        	// Searching Data with a wildcard (*) like operand
+        	else if(this.request.getMode().equals("like")){
+        		CSV_Table results = this.searchSimilar(this.request.getReferenceDataset(),
+        				this.request.getSearchTerm(), this.request.getMode());
         		
+        		responseStatusCode = 2;
+        		if (results.getRecords().size() > 0){
+        			if(results.getRecords().size() == 1)
+        				responseMessage = "One result was found.";
+        			else
+        				responseMessage = results.getRecords().size() + " were results found.";
+        				
+        		} else{
+        			responseMessage = "No results were found.";
+        		}
+        		
+        		// Creating response
+        		this.response = new InterlinkingResponse(responseStatusCode, responseMessage, results);
+        		this.response.writeResponse(writer, this.request.getMode());
+        		//this.writeResponse(writer, this.request.getMode(), results);
         	}
         	
         	
@@ -108,22 +146,22 @@ public class Interlinker extends HttpServlet {
         	//TODO: Handle exceptions better (add them to response)
         	System.err.println("Exception occured. "+"Type: " + e.getErrorType() +
         			" Reason: " + e.getMessage());
+        	
+        	responseStatusCode = -1;
+        	responseMessage = "Exception occured. "+"Type: " + e.getErrorType() +
+        			" Reason: " + e.getMessage();
+        	
+        	this.response = new  InterlinkingResponse(responseStatusCode, responseMessage, null);
+        	try {
+				this.response.writeResponse(writer, this.request.getMode());
+			} catch (InterlinkingException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
         } 
 	}
 
-	// This version of writeResponse is used when user is indexing a new csv file
-	private void writeResponse(JsonWriter writer, String mode, String message) 
-			throws InterlinkingException {
-		try{
-			writer.beginObject();
-			writer.name("message").value(message);
-			writer.endObject();
-			writer.close();
-		} catch (IOException e){
-	    	throw new InterlinkingException("Uknown error while forming search response.", 
-	    			false, ErrorType.InternalServerError);
-	    }
-	}
+
 	
 	private InterlinkingRequest parseRequest(byte[] request) 
 			throws IOException, InterlinkingException {
@@ -168,17 +206,24 @@ public class Interlinker extends HttpServlet {
 		}
 		if(mode == null){
 			throw new InterlinkingException("Invalid request: Parameter \"mode\" was not set", true, ErrorType.MalformedRequest);
-		} else if(!mode.equals("search") && !mode.equals("index")){
-			throw new InterlinkingException("Invalid request: Parameter \"mode\" has invalid value. Valid values are \"search\" and \"index\".", true, ErrorType.Inconsistent);
-		} else if(searchTerm  == null && mode.equals("search")){
+		}
+		else if(!mode.equals("search") && !mode.equals("index") && !mode.equals("like")){
+			throw new InterlinkingException("Invalid request: Parameter \"mode\" has invalid value. " +
+					"Valid values are \"search\", \"index\" and \"like\".", true, ErrorType.Inconsistent);
+		} 
+		else if(searchTerm  == null && (mode.equals("search") || mode.equals("like"))){
 			throw new InterlinkingException("Invalid request: Parameter \"term\" was not set", true, ErrorType.MalformedRequest);
-		} else if (referenceDataset == null && mode.equals("search")){
+		} 
+		else if (referenceDataset == null && (mode.equals("search") || mode.equals("like"))){
 			throw new InterlinkingException("Invalid request: Parameter \"reference\" was not set", true, ErrorType.MalformedRequest);
-		}  else if (indexField == null && mode.equals("index")){
+		} 
+		else if (indexField == null && mode.equals("index")){
 			throw new InterlinkingException("Invalid request: Parameter \"index_field\" was not set", true, ErrorType.MalformedRequest);
-		} else if (index == null && mode.equals("index")){
+		} 
+		else if (index == null && mode.equals("index")){
 			throw new InterlinkingException("Invalid request: Parameter \"index\" was not set", true, ErrorType.MalformedRequest);
-		} else if (file == null && mode.equals("index")){
+		} 
+		else if (file == null && mode.equals("index")){
 			throw new InterlinkingException("Invalid request: Parameter \"file\" was not set", true, ErrorType.MalformedRequest);
 		}
 		
@@ -186,8 +231,11 @@ public class Interlinker extends HttpServlet {
 		if (mode.equals("search")){
 			parameters.put("searchTerm", searchTerm);
 			parameters.put("referenceDataset", referenceDataset);
+		} else if (mode.equals("like")){
+			parameters.put("searchTerm", searchTerm);
+			parameters.put("referenceDataset", referenceDataset);
 			this.request = new InterlinkingRequest(mode, parameters);
-		}else if (mode.equals("index")){
+		} else if (mode.equals("index")){
 			parameters.put("index", index);
 			parameters.put("indexField", indexField);
 			parameters.put("file", file);
@@ -198,8 +246,8 @@ public class Interlinker extends HttpServlet {
 	
 	private void indexCSV (String fileName, String index_str, String indexField) throws InterlinkingException{
 		String local_data_sub_dir = "/WEB-INF/data/";
-		String local_index_sub_dir = "/WEB-INF/indexes/";
-		String local_conf_file = "/WEB-INF/conf/indexes.conf";
+		String local_index_sub_dir = "/WEB-INF/indices/";
+		String local_conf_file = "/WEB-INF/conf/indices.conf";
 		String data_real_dir =  this.getServletContext().getRealPath(local_data_sub_dir + fileName);
 		String index_real_dir = this.getServletContext().getRealPath(local_index_sub_dir + index_str);
 		String conf_real_dir = this.getServletContext().getRealPath(local_conf_file);
@@ -208,30 +256,38 @@ public class Interlinker extends HttpServlet {
 		indexer.index();
 		
 		// Update index configuration with this index
-		Configurer conf = new Configurer (conf_real_dir);
-		conf.setConf(index_str, indexField);
+		//Configurer conf = new Configurer (conf_real_dir);
+		//conf.setConf(index_str, indexField);
 	}
 	
-	private CSV_Table searchSimilar(String referenceDataset, 
-			String searchTerm) throws InterlinkingException {
-		String local_index_sub_dir = "/WEB-INF/indexes/";
-		String local_conf_file = "/WEB-INF/conf/indexes.conf";
-		String index_real_dir = this.getServletContext().getRealPath(local_index_sub_dir + referenceDataset);
-		String conf_real_dir = this.getServletContext().getRealPath(local_conf_file);
+	private CSV_Table searchSimilar(String referenceDataset, String searchTerm, String mode) throws InterlinkingException {
+		String local_index_sub_dir = "/WEB-INF/indices/";
+		String index_name = null;
+		String searchField = null;
 		
-	    //Query indexes.conf configuration file to retrieve information about the searchField
-		Configurer conf = new Configurer (conf_real_dir);
-		String searchField = conf.getConf(referenceDataset);
+		if (mode.equals("search")){
+			index_name = referenceDataset;
+			searchField = "searchFieldText";
+		} 
+		else if (mode.equals("like")){
+			index_name =  referenceDataset + "_unstemmed";
+			searchField = "likeStringText";
+		}
+		String index_real_dir = this.getServletContext().getRealPath(local_index_sub_dir + index_name);
+		
 		
 		Searcher searcher = new Searcher();
-		return searcher.search(index_real_dir, searchField, searchTerm);
+		return searcher.search(index_real_dir, searchField, searchTerm, mode);
 	}
 	
+	
 	// This version of writeResponse is used when user is searching an index
+	/*
 	private void writeResponse(ExtendedJsonWriter writer, String mode, CSV_Table results) throws InterlinkingException {
 	    try{
-	    	if(mode.equals("search")){
+	    	if(mode.equals("search") || mode.equals("like")){
 	    		writer.beginObject();
+	    		this.writerResponseResultsNumber (writer, results.getRecords().size());
 	    		this.writeResponseFields(writer, results.getFields());
 	    		this.writeResponseRecords(writer, results.getRecords());
 	    		writer.endObject();
@@ -243,31 +299,8 @@ public class Interlinker extends HttpServlet {
 	    			false, ErrorType.InternalServerError);
 	    }
 	}
+	*/
 
-	private void writeResponseFields(ExtendedJsonWriter writer, 
-			List <String> fields) throws IOException {
-		
-		writer.name("fields");
-		writer.array(fields.toArray(new String[fields.size()]));
-		
-	}
-	
-	private void writeResponseRecords(ExtendedJsonWriter writer,
-			List<CSV_Record> records) throws IOException {
-		
-		writer.name("records");
-		writer.beginArray();
-		for (CSV_Record record : records){
-			writeResponseRecord(writer, record);
-		}
-		writer.endArray();
-	}
 
-	private void writeResponseRecord(ExtendedJsonWriter writer,
-			CSV_Record record) throws IOException {
-		writer.beginObject();
-		for (String key: record.keySet()){
-			writer.name(key).value(record.getValue(key));
-		}writer.endObject();
-	}
+
 }

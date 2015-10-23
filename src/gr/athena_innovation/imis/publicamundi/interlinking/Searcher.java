@@ -29,25 +29,35 @@ public class Searcher {
 	//TODO change the following line
 	private CSV_Table results = new CSV_Table();
 	
-	public CSV_Table search(String index, String searchField, String searchTerm) throws InterlinkingException {
+	public CSV_Table search(String index, String searchField, String searchTerm,
+			String mode) throws InterlinkingException {
+		
 		String [] index_url_parts = index.split("/");
 		String index_name = index_url_parts[index_url_parts.length-1];
+		String queryString = null;
+		Analyzer analyzer = null;
 		
-		String queryString_simple = searchTerm.toLowerCase();
-		queryString_simple = Normalizer.normalize(queryString_simple, Normalizer.Form.NFD);
-	    queryString_simple = queryString_simple.replaceAll("\\p{InCombiningDiacriticalMarks}+", ""); 
-	    queryString_simple = queryString_simple.trim();
-	    	    
-	    
-	    System.out.println(queryString_simple);
+		if(mode.equals("search")){
+			queryString = searchTerm.toLowerCase();
+			queryString = Normalizer.normalize(queryString, Normalizer.Form.NFD);
+			queryString = queryString.replaceAll("\\p{InCombiningDiacriticalMarks}+", ""); 
+		    queryString = queryString.trim();
+		    analyzer = new GreekAnalyzer();
+		} 
+		else if (mode.equals("like")){
+			queryString = searchTerm.replace(" ", "\\ ");
+			queryString = queryString + "*";
+			analyzer = new StandardAnalyzer();
+		}
+	    //System.out.println(queryString);
 	    
 	    int hitsPerPage = 10;
 	    try{
 		    IndexReader reader = DirectoryReader.open(FSDirectory.open(Paths.get(index)));
 		    IndexSearcher searcher = new IndexSearcher(reader);
-		    Analyzer greek_analyzer = new GreekAnalyzer();
-		    SimpleQueryParser parser =  new SimpleQueryParser(greek_analyzer, searchField);
-		    Query query = parser.parse(queryString_simple);
+		    
+		    SimpleQueryParser parser =  new SimpleQueryParser(analyzer, searchField);
+		    Query query = parser.parse(queryString);
 		    
 		    this.doPagingSearch(searcher,  query, hitsPerPage, searchField, index_name);
 		    reader.close();
@@ -66,60 +76,61 @@ public class Searcher {
 	    TopDocs results = searcher.search(query, 5 * hitsPerPage);
 	    ScoreDoc[] hits = results.scoreDocs;
 	    
-	    int numTotalHits = results.totalHits;
-	    System.out.println(numTotalHits + " total matching documents");
-
-	    int start = 0;
-	    int end = Math.min(numTotalHits, hitsPerPage);
-	        
-	    // Gathering fields in a list
-	    Document doc = searcher.doc(hits[0].doc);
-		List <String> fields = new ArrayList <String> ();
-		for (int i=0; i < doc.getFields().size(); i++){
-			if(!doc.getFields().get(i).name().equals("searchFieldText")){
+	    if (hits.length > 0){
+		    int numTotalHits = results.totalHits;
+		    //System.out.println(numTotalHits + " total matching documents");
+	
+		    int start = 0;
+		    int end = Math.min(numTotalHits, hitsPerPage);
+		        
+		    // Gathering fields in a list
+		    Document doc = searcher.doc(hits[0].doc);
+			List <String> fields = new ArrayList <String> ();
+			for (int i=0; i < doc.getFields().size(); i++){
 				fields.add(doc.getFields().get(i).name());
 			}
-		}
-		// Verifying that searchField is among index's indexed fields
-		if (searfFieldNotInFields(searchField, fields)){
-			throw new InterlinkingException("Index essing index '" + index + "' does not contain field '" + searchField + "'.", 
-	    			 true, ErrorType.InternalServerError);
-		}
-		List <String> final_fields = new ArrayList <String> ();
-		// The search field comes first then the score field, then the rest fields indexed
-		final_fields.add(searchField);
-		final_fields.add("scoreField");
-		for (int i=0; i < fields.size(); i++){
-			if(!fields.get(i).equals(searchField)){
-				final_fields.add(fields.get(i));
+			
+			// Verifying that searchField is among index's indexed fields
+			if (searfFieldNotInFields(searchField, fields)){
+				throw new InterlinkingException("Index index '" + index + "' does not contain field '" + searchField + "'.", 
+		    			 true, ErrorType.InternalServerError);
 			}
-		} 
-		// Setting result fields		
-		this.results.setFields(final_fields.toArray(new String[final_fields.size()]));
-		//this.results.setFields(final_fields.toArray(new String[final_fields.size()]));
-	    
-	    // Identifying the best score in order to normalize all scores
-	    double best_score = 0;
-	    for (int i = start; i < end; i++) {
-	    	if (best_score < hits[i].score){
-				best_score = hits[i].score;
-			}
-	    }
-	    // Updating records
-	    for (int i = start; i < end; i++) {
-	    	List <String> temp_record = new ArrayList <String> ();
-	    	doc = searcher.doc(hits[i].doc);
-	    	
-	    	for(int j=0; j < this.results.getFields().size(); j++){
-	    		String current_field = this.results.getFields().get(j);
-	    		if(current_field.equals("scoreField")){
-	    			temp_record.add(Double.toString(normalize(hits[i].score, best_score)));
-	    		} else{
-	    			temp_record.add(doc.get(current_field));
-	    		}
-	    	}
-	    	this.results.appendRecord(temp_record.toArray(new String[temp_record.size()]));
-	    }
+			List <String> final_fields = new ArrayList <String> ();
+			// The search field comes first then the score field, then the rest fields indexed
+			final_fields.add(searchField);
+			final_fields.add("scoreField");
+			for (int i=0; i < fields.size(); i++){
+				if(!fields.get(i).equals(searchField)){
+					final_fields.add(fields.get(i));
+				}
+			} 
+			// Setting result fields		
+			this.results.setFields(final_fields.toArray(new String[final_fields.size()]));
+			//this.results.setFields(final_fields.toArray(new String[final_fields.size()]));
+		    
+		    // Identifying the best score in order to normalize all scores
+		    double best_score = 0;
+		    for (int i = start; i < end; i++) {
+		    	if (best_score < hits[i].score){
+					best_score = hits[i].score;
+				}
+		    }
+		    // Updating records
+		    for (int i = start; i < end; i++) {
+		    	List <String> temp_record = new ArrayList <String> ();
+		    	doc = searcher.doc(hits[i].doc);
+		    	
+		    	for(int j=0; j < this.results.getFields().size(); j++){
+		    		String current_field = this.results.getFields().get(j);
+		    		if(current_field.equals("scoreField")){
+		    			temp_record.add(Double.toString(normalize(hits[i].score, best_score)));
+		    		} else{
+		    			temp_record.add(doc.get(current_field));
+		    		}
+		    	}
+		    	this.results.appendRecord(temp_record.toArray(new String[temp_record.size()]));
+		    }
+	    } 
 	}
 
 	private boolean searfFieldNotInFields(String searchField,
