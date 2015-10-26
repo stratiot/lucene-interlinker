@@ -28,9 +28,10 @@ public class Searcher {
 	
 	//TODO change the following line
 	private CSV_Table results = new CSV_Table();
+	private String orgiginalSearchField;
 	
 	public CSV_Table search(String index, String searchField, String searchTerm,
-			String mode) throws InterlinkingException {
+			String mode, String orgiginalSearchField) throws InterlinkingException {
 		
 		String [] index_url_parts = index.split("/");
 		String index_name = index_url_parts[index_url_parts.length-1];
@@ -49,7 +50,7 @@ public class Searcher {
 			queryString = queryString + "*";
 			analyzer = new StandardAnalyzer();
 		}
-	    //System.out.println(queryString);
+	    this.orgiginalSearchField = orgiginalSearchField;
 	    
 	    int hitsPerPage = 10;
 	    try{
@@ -90,17 +91,19 @@ public class Searcher {
 				fields.add(doc.getFields().get(i).name());
 			}
 			
-			// Verifying that searchField is among index's indexed fields
-			if (searfFieldNotInFields(searchField, fields)){
+			//TODO remove it. Probably useless
+			// Verifying that originalSearchField is among index's indexed fields
+			if (searfFieldNotInFields(this.orgiginalSearchField, fields)){
 				throw new InterlinkingException("Index index '" + index + "' does not contain field '" + searchField + "'.", 
 		    			 true, ErrorType.InternalServerError);
 			}
+			
 			List <String> final_fields = new ArrayList <String> ();
-			// The search field comes first then the score field, then the rest fields indexed
-			final_fields.add(searchField);
+			// The original search field comes first then the score field, then the rest fields indexed
+			final_fields.add(this.orgiginalSearchField);
 			final_fields.add("scoreField");
 			for (int i=0; i < fields.size(); i++){
-				if(!fields.get(i).equals(searchField)){
+				if(!fields.get(i).equals(this.orgiginalSearchField) && !fields.get(i).equals(searchField)){
 					final_fields.add(fields.get(i));
 				}
 			} 

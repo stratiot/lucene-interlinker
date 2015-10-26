@@ -21,7 +21,6 @@ public class Configurer {
 	}
 	
 	public void setConf(String index, String searchField) throws InterlinkingException{
-		System.out.println(this.confFile);
 		if (!Files.isReadable(this.confFile)){
 			throw new InterlinkingException("Configuration file '" +confFile.toAbsolutePath()+ "' does not exist or is not readable, please check the path", false, ErrorType.DataNotAvailable);			
 		} else{
@@ -66,7 +65,6 @@ public class Configurer {
 	
 	public String getConf(String index) throws InterlinkingException{
 		String result = null;
-		System.out.println(this.confFile);
 		if (!Files.isReadable(this.confFile)){
 			throw new InterlinkingException("Configuration file '" +confFile.toAbsolutePath()+ "' does not exist or is not readable, please check the path", false, ErrorType.DataNotAvailable);			
 		} else{

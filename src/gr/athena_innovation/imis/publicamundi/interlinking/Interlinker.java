@@ -7,6 +7,7 @@ import gr.athena_innovation.imis.publicamundi.interlinking.InterlinkingRequest;
 import gr.athena_innovation.imis.publicamundi.interlinking.InterlinkingException.ErrorType;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -24,7 +25,7 @@ import java.util.Map;
 
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
+import javax.servlet.ServletInputStream;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -38,7 +39,7 @@ import com.google.gson.stream.JsonWriter;
 @WebServlet("/Interlinker")
 public class Interlinker extends HttpServlet {
 	private static final long serialVersionUID = 1L;
-    
+       
 	private InterlinkingRequest request;
 	private InterlinkingResponse response;
     /**
@@ -54,14 +55,6 @@ public class Interlinker extends HttpServlet {
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		// TODO Auto-generated method stub
-		/*
-		System.out.println("We have a proud GET!");
-		response.setContentType("text/html");
-		PrintWriter out = response.getWriter();
-
-		out.println("<title>Response</title>" +  "<body bgcolor=FFFFFF>");
-		out.println("<h3>We have a proud GET!</h3>");
-		*/
 	}
 
 	/**
@@ -71,12 +64,10 @@ public class Interlinker extends HttpServlet {
 		byte[] jsonData = new byte[request.getContentLength()];
 		InputStream sis = request.getInputStream();
         BufferedInputStream bis = new BufferedInputStream(sis);
+        bis.read(jsonData, 0, jsonData.length);
         
 		OutputStream out = response.getOutputStream();
 		ExtendedJsonWriter writer = new ExtendedJsonWriter(new OutputStreamWriter(out, "UTF-8"));
-        
-        
-        bis.read(jsonData, 0, jsonData.length);
         
     	int responseStatusCode = -1;
     	String responseMessage = null;
@@ -84,9 +75,11 @@ public class Interlinker extends HttpServlet {
         try{
         	// Parsing Request
         	this.request = this.parseRequest(jsonData);
+        	
 
         	// Indexing Data
         	if(this.request.getMode().equals("index")){
+        		
         		this.indexCSV(this.request.getFile(), 
 						this.request.getIndex(), 
 						this.request.getIndexField());
@@ -256,12 +249,14 @@ public class Interlinker extends HttpServlet {
 		indexer.index();
 		
 		// Update index configuration with this index
-		//Configurer conf = new Configurer (conf_real_dir);
-		//conf.setConf(index_str, indexField);
+		Configurer conf = new Configurer (conf_real_dir);
+		conf.setConf(index_str, indexField);
 	}
 	
 	private CSV_Table searchSimilar(String referenceDataset, String searchTerm, String mode) throws InterlinkingException {
 		String local_index_sub_dir = "/WEB-INF/indices/";
+		String local_conf_file = "/WEB-INF/conf/indices.conf";
+		String conf_real_dir = this.getServletContext().getRealPath(local_conf_file);
 		String index_name = null;
 		String searchField = null;
 		
@@ -275,9 +270,13 @@ public class Interlinker extends HttpServlet {
 		}
 		String index_real_dir = this.getServletContext().getRealPath(local_index_sub_dir + index_name);
 		
+		//Query indexes.conf configuration file to retrieve information about the searchField
+		Configurer conf = new Configurer (conf_real_dir);
+		String orgiginalSearchField = conf.getConf(referenceDataset);
+		
 		
 		Searcher searcher = new Searcher();
-		return searcher.search(index_real_dir, searchField, searchTerm, mode);
+		return searcher.search(index_real_dir, searchField, searchTerm, mode, orgiginalSearchField);
 	}
 	
 	
@@ -300,7 +299,5 @@ public class Interlinker extends HttpServlet {
 	    }
 	}
 	*/
-
-
 
 }
