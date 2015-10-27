@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.lucene.analysis.Analyzer;
@@ -65,7 +66,7 @@ public class Indexer {
 		this.update = update;
 	}
 
-	public void index() throws InterlinkingException{
+	public List <String> index() throws InterlinkingException{
 		
 		if (!Files.isReadable(this.csvFileDir)){
 			throw new InterlinkingException("Document file '" +this.csvFileDir.toAbsolutePath() + 
@@ -123,7 +124,7 @@ public class Indexer {
 		    }
 		    System.out.println("-------------------------------------------------------------");
 			*/
-			
+			return fields;
 		} catch (IOException e){
 			throw new InterlinkingException("Exception '" + e.getClass() + "' with message: '" +  e.getMessage() + "'was caught.", 
 	    			 false, ErrorType.InternalServerError);
@@ -221,7 +222,7 @@ public class Indexer {
 		temp_fields.add("searchFieldText");
 	    csv.setFields(temp_fields.toArray(new String[temp_fields.size()]));
 	    
-	    return csv.getFields();
+	    return Arrays.asList(fields);
 	}
 }
 

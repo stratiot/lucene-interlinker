@@ -24,6 +24,12 @@ public class InterlinkingRequest {
 			this.file = parameters.get("file");
 			this.indexField = parameters.get("indexField");
 			this.index = parameters.get("index");
+		}else if(this.mode.equals("fields")){
+			this.searchTerm = null;
+			this.referenceDataset = null;
+			this.file = null;
+			this.indexField = null;
+			this.index = parameters.get("index");
 		}
 	}
 	

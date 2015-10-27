@@ -15,6 +15,7 @@ public class CSV_Table {
 	}
 	
 	public void setFields(String [] fields){
+		this.fields = new ArrayList<String>();
 		for(int i=0; i<fields.length; i++){
 			this.appendField(fields[i]);
 		}

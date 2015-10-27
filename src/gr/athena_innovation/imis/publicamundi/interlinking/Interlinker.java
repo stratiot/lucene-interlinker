@@ -132,11 +132,16 @@ public class Interlinker extends HttpServlet {
         		this.response = new InterlinkingResponse(responseStatusCode, responseMessage, results);
         		this.response.writeResponse(writer, this.request.getMode());
         		//this.writeResponse(writer, this.request.getMode(), results);
+        	} else if(this.request.getMode().equals("fields")){
+        		responseStatusCode = 3;
+        		responseMessage = "Index fields returned.";
+        		List <String> fields = this.getIndexFields(this.request.getIndex());
+        		this.response = new InterlinkingResponse(responseStatusCode, responseMessage, fields);
+        		this.response.writeResponse(writer, this.request.getMode());
         	}
         	
         	
         }catch (InterlinkingException e){
-        	//TODO: Handle exceptions better (add them to response)
         	System.err.println("Exception occured. "+"Type: " + e.getErrorType() +
         			" Reason: " + e.getMessage());
         	
@@ -144,11 +149,10 @@ public class Interlinker extends HttpServlet {
         	responseMessage = "Exception occured. "+"Type: " + e.getErrorType() +
         			" Reason: " + e.getMessage();
         	
-        	this.response = new  InterlinkingResponse(responseStatusCode, responseMessage, null);
+        	this.response = new  InterlinkingResponse(responseStatusCode, responseMessage);
         	try {
 				this.response.writeResponse(writer, this.request.getMode());
 			} catch (InterlinkingException e1) {
-				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
         } 
@@ -200,7 +204,7 @@ public class Interlinker extends HttpServlet {
 		if(mode == null){
 			throw new InterlinkingException("Invalid request: Parameter \"mode\" was not set", true, ErrorType.MalformedRequest);
 		}
-		else if(!mode.equals("search") && !mode.equals("index") && !mode.equals("like")){
+		else if(!mode.equals("search") && !mode.equals("index") && !mode.equals("like") && !mode.equals("fields")){
 			throw new InterlinkingException("Invalid request: Parameter \"mode\" has invalid value. " +
 					"Valid values are \"search\", \"index\" and \"like\".", true, ErrorType.Inconsistent);
 		} 
@@ -213,7 +217,7 @@ public class Interlinker extends HttpServlet {
 		else if (indexField == null && mode.equals("index")){
 			throw new InterlinkingException("Invalid request: Parameter \"index_field\" was not set", true, ErrorType.MalformedRequest);
 		} 
-		else if (index == null && mode.equals("index")){
+		else if (index == null && (mode.equals("index") || mode.equals("fields"))){
 			throw new InterlinkingException("Invalid request: Parameter \"index\" was not set", true, ErrorType.MalformedRequest);
 		} 
 		else if (file == null && mode.equals("index")){
@@ -232,6 +236,8 @@ public class Interlinker extends HttpServlet {
 			parameters.put("index", index);
 			parameters.put("indexField", indexField);
 			parameters.put("file", file);
+		} else if (mode.equals("fields")){
+			parameters.put("index", index);
 		}
 		
 		return new InterlinkingRequest(mode, parameters);
@@ -246,11 +252,31 @@ public class Interlinker extends HttpServlet {
 		String conf_real_dir = this.getServletContext().getRealPath(local_conf_file);
 		
 		Indexer indexer = new Indexer(data_real_dir, index_real_dir, indexField);
-		indexer.index();
+		List <String> fields = indexer.index();
 		
 		// Update index configuration with this index
 		Configurer conf = new Configurer (conf_real_dir);
-		conf.setConf(index_str, indexField);
+		conf.setConf(index_str, indexField, fields);
+	}
+	
+	private List <String> getIndexFields (String index) throws InterlinkingException{
+		String local_conf_file = "/WEB-INF/conf/indices.conf";
+		String conf_real_dir = this.getServletContext().getRealPath(local_conf_file);
+				
+		// Update index configuration with this index
+		Configurer conf = new Configurer (conf_real_dir);
+		IndexProperties idx = conf.getConf(index);
+		if (idx == null){
+			throw new InterlinkingException("Index '" + index + "' does not exist.", 
+	    			 true, ErrorType.MalformedRequest);
+		}
+		List <String> fields = idx.getFields();
+		if (fields != null && fields.size() > 0)
+			return fields;
+		else {
+			throw new InterlinkingException("Fields for index '" + index + "' could not be retrieved.", 
+	    			 false, ErrorType.InternalServerError);
+		}
 	}
 	
 	private CSV_Table searchSimilar(String referenceDataset, String searchTerm, String mode) throws InterlinkingException {
@@ -272,7 +298,7 @@ public class Interlinker extends HttpServlet {
 		
 		//Query indexes.conf configuration file to retrieve information about the searchField
 		Configurer conf = new Configurer (conf_real_dir);
-		String orgiginalSearchField = conf.getConf(referenceDataset);
+		String orgiginalSearchField = conf.getConf(referenceDataset).getIndexField();
 		
 		
 		Searcher searcher = new Searcher();

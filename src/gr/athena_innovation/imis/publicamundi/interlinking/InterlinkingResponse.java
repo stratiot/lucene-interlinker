@@ -12,19 +12,30 @@ public class InterlinkingResponse {
 	private int _responseStatus;
 	private String _responseMessage;
 	private CSV_Table _results;
+	private List <String> _fields;
 	
 	InterlinkingResponse (int code, String message, CSV_Table results){
 		this._responseStatus = code;
 		this._responseMessage = message;
 		this._results = results;
+		this._fields = null;
 	}
 	
 	InterlinkingResponse (int code, String message){
 		this._responseStatus = code;
 		this._responseMessage = message;
 		this._results = null;
+		this._fields = null;
 	}
 	
+	public InterlinkingResponse(int code, String message,
+			List<String> fields) {
+		this._responseStatus = code;
+		this._responseMessage = message;
+		this._results = null;
+		this._fields = fields;
+	}
+
 	public int getResponseStatus() {
 		return this._responseStatus;
 	}
@@ -51,7 +62,24 @@ public class InterlinkingResponse {
 		    	throw new InterlinkingException("Uknown error while forming search response.", 
 		    			false, ErrorType.InternalServerError);
 		    }
-		} else if(mode.equals("search") || mode.equals("like")){
+		} else if (mode.equals("fields")){
+			try {
+				writer.beginObject();
+				writer.name("status").value(this.getResponseStatus());
+				writer.name("message").value(this.getResponseMessage());
+				if(this._fields != null){
+		    		this._writeResponseFields(writer, this._fields);
+	    		} else{
+		    		this._writeResponseFields(writer, new ArrayList<String>());
+	    		}
+				writer.endObject();
+				writer.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				throw new InterlinkingException("Uknown error while forming fields response.", 
+		    			false, ErrorType.InternalServerError);
+			}
+		}else if(mode.equals("search") || mode.equals("like")){
 			try{
 	    		writer.beginObject();
 	    		writer.name("status").value(this.getResponseStatus());

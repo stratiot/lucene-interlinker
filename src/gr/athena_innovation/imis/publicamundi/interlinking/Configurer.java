@@ -9,8 +9,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Arrays;
 
 public class Configurer {
 	
@@ -20,7 +23,7 @@ public class Configurer {
 		this.confFile = Paths.get(confDir);
 	}
 	
-	public void setConf(String index, String searchField) throws InterlinkingException{
+	public void setConf(String index, String searchField, List <String> fields) throws InterlinkingException{
 		if (!Files.isReadable(this.confFile)){
 			throw new InterlinkingException("Configuration file '" +confFile.toAbsolutePath()+ "' does not exist or is not readable, please check the path", false, ErrorType.DataNotAvailable);			
 		} else{
@@ -28,26 +31,47 @@ public class Configurer {
 			final BufferedWriter writer;
 			String line;
 			
-			Map<String, String> indices = new HashMap<String, String>();
+			Map<String, IndexProperties> indices = new HashMap<String, IndexProperties>();
 			try {		
 				// configuration is loaded to indices HashMap
 				reader = Files.newBufferedReader(this.confFile, StandardCharsets.UTF_8);
 				while ((line = reader.readLine()) != null) {
-			    	indices.put(line.split(":")[0], line.split(":")[1]);
+					IndexProperties idx = new IndexProperties(line.split(":")[0]);
+					idx.setIndexField(line.split(":")[1]);
+					String fieldsListStr = line.split(":")[2];
+					List<String> originalFields = Arrays.asList(fieldsListStr.split(","));
+					for (String originalField : originalFields){
+						idx.appendField(originalField);
+					}
+			    	indices.put(idx.getIndexName(), idx);
 				}
 				reader.close();
 				
 				if(indices.get(index) == null){
 					//Add a new index configuration record
-					indices.put(index, searchField);
+					IndexProperties idx = new IndexProperties(index);
+					idx.setIndexField(searchField);
+					for (String field : fields){
+						idx.appendField(field);
+					}
+					indices.put(index, idx);
 				} else {
 					//Update an existing index configuration record
-					indices.put(index, searchField);
+					IndexProperties idx = new IndexProperties(index);
+					idx.setIndexField(searchField);
+					for (String field : fields){
+						idx.appendField(field);
+					}
+					indices.put(index, idx);
 				}
 				// Update configuration file
 				writer = Files.newBufferedWriter(this.confFile, StandardCharsets.UTF_8);
 				for (int i=0; i< indices.keySet().size(); i++){
-					line = (String) (indices.keySet().toArray()[i] + ":" + indices.get(indices.keySet().toArray()[i]));
+					line = (String) (indices.keySet().toArray()[i] + ":" + indices.get(indices.keySet().toArray()[i]).getIndexField() + ":");
+					for (String field : indices.get(indices.keySet().toArray()[i]).getFields()){
+						line += field + ",";
+					}
+					line = line.substring(0, line.length() - 1);
 					writer.write(line);
 			        writer.newLine();
 				}
@@ -63,20 +87,27 @@ public class Configurer {
 		}
 	}
 	
-	public String getConf(String index) throws InterlinkingException{
-		String result = null;
+	public IndexProperties getConf(String index) throws InterlinkingException{
+		IndexProperties result = null;
 		if (!Files.isReadable(this.confFile)){
 			throw new InterlinkingException("Configuration file '" +confFile.toAbsolutePath()+ "' does not exist or is not readable, please check the path", false, ErrorType.DataNotAvailable);			
 		} else{
 			final BufferedReader reader;
 			String line;
 			
-			Map<String, String> indices = new HashMap<String, String>();
+			Map<String, IndexProperties> indices = new HashMap<String, IndexProperties>();
 			try {		
 				// configuration is loaded to indices HashMap
 				reader = Files.newBufferedReader(this.confFile, StandardCharsets.UTF_8);
 				while ((line = reader.readLine()) != null) {
-			    	indices.put(line.split(":")[0], line.split(":")[1]);
+					IndexProperties idx = new IndexProperties(line.split(":")[0]);
+					idx.setIndexField(line.split(":")[1]);
+					String fieldsListStr = line.split(":")[2];
+					List<String> originalFields = Arrays.asList(fieldsListStr.split(","));
+					for (String originalField : originalFields){
+						idx.appendField(originalField);
+					}
+			    	indices.put(idx.getIndexName(), idx);
 				}
 				reader.close();
 				
