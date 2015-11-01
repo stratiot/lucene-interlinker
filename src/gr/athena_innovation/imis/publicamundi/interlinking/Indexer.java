@@ -205,6 +205,9 @@ public class Indexer {
 		    		doc.add(field);
 		    		if(key.equals(this.searchField)){
 		        		key = "likeStringText";
+		        		value = value.toLowerCase();
+		    			value = Normalizer.normalize(value, Normalizer.Form.NFD);
+		    			value = value.replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
 		    			field = new StringField(key, value, Field.Store.YES);
 		        		doc.add(field);
 		    		}

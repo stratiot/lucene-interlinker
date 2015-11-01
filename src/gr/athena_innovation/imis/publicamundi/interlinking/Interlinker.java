@@ -135,7 +135,7 @@ public class Interlinker extends HttpServlet {
         	} else if(this.request.getMode().equals("fields")){
         		responseStatusCode = 3;
         		responseMessage = "Index fields returned.";
-        		List <String> fields = this.getIndexFields(this.request.getIndex());
+        		List <String> fields = this.getIndexFields(this.request.getIndex(), this.request.areOriginals());
         		this.response = new InterlinkingResponse(responseStatusCode, responseMessage, fields);
         		this.response.writeResponse(writer, this.request.getMode());
         	}
@@ -176,6 +176,9 @@ public class Interlinker extends HttpServlet {
 		String index = null;
 		String indexField = null;
 		String file = null;
+		
+		// In case mode is "fields" the following parameter optionally is set
+		String originals = null;
 		try{
 			reader.beginObject();
 			while(reader.hasNext()){
@@ -192,6 +195,8 @@ public class Interlinker extends HttpServlet {
 					indexField = reader.nextString();
 				}else if (name.equals("file")){
 					file = reader.nextString();
+				}else if (name.equals("originals")){
+					originals = reader.nextString();
 				} else {
 			         reader.skipValue();
 			    }
@@ -238,6 +243,11 @@ public class Interlinker extends HttpServlet {
 			parameters.put("file", file);
 		} else if (mode.equals("fields")){
 			parameters.put("index", index);
+			if (originals == "true" || originals == null)
+				parameters.put("originals", "true");
+			else if (originals == "false"){
+				parameters.put("originals", "false");
+			}
 		}
 		
 		return new InterlinkingRequest(mode, parameters);
@@ -259,7 +269,7 @@ public class Interlinker extends HttpServlet {
 		conf.setConf(index_str, indexField, fields);
 	}
 	
-	private List <String> getIndexFields (String index) throws InterlinkingException{
+	private List <String> getIndexFields (String index, boolean originals) throws InterlinkingException{
 		String local_conf_file = "/WEB-INF/conf/indices.conf";
 		String conf_real_dir = this.getServletContext().getRealPath(local_conf_file);
 				
@@ -272,7 +282,20 @@ public class Interlinker extends HttpServlet {
 		}
 		List <String> fields = idx.getFields();
 		if (fields != null && fields.size() > 0)
-			return fields;
+			
+			if(originals == true){
+				return fields;
+			}else{
+				String indexField = idx.getIndexField();
+				List <String> real_fields = new ArrayList <String> ();
+				real_fields.add(indexField);
+				real_fields.add("scoreField");
+				for (String field : fields){
+					if(!field.equals(indexField))
+						real_fields.add(field);
+				}
+				return real_fields;
+			}
 		else {
 			throw new InterlinkingException("Fields for index '" + index + "' could not be retrieved.", 
 	    			 false, ErrorType.InternalServerError);

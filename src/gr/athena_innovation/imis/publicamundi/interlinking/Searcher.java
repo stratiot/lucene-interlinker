@@ -46,7 +46,10 @@ public class Searcher {
 		    analyzer = new GreekAnalyzer();
 		} 
 		else if (mode.equals("like")){
-			queryString = searchTerm.replace(" ", "\\ ");
+			queryString = searchTerm.toLowerCase();
+			queryString = Normalizer.normalize(queryString, Normalizer.Form.NFD);
+			queryString = queryString.replaceAll("\\p{InCombiningDiacriticalMarks}+", ""); 
+			queryString = queryString.replace(" ", "\\ ");
 			queryString = queryString + "*";
 			analyzer = new StandardAnalyzer();
 		}

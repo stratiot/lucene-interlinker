@@ -9,7 +9,8 @@ public class InterlinkingRequest {
 	private String file;
 	private String indexField;
 	private String index;
-	
+	private boolean originals;
+
 	InterlinkingRequest(String mode, Map <String, String> parameters){
 		this.mode = mode;
 		if (this.mode.equals("search") || this.mode.equals("like")){
@@ -30,6 +31,11 @@ public class InterlinkingRequest {
 			this.file = null;
 			this.indexField = null;
 			this.index = parameters.get("index");
+			if (parameters.get("originals") == "true"){
+				this.originals = true;
+			} else{
+				this.originals = false;
+			}
 		}
 	}
 	
@@ -54,4 +60,9 @@ public class InterlinkingRequest {
 	public String getIndex() {
 		return index;
 	}
+	
+	public boolean areOriginals() {
+		return originals;
+	}
+
 }
