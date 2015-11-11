@@ -115,12 +115,16 @@ public class Searcher {
 			//this.results.setFields(final_fields.toArray(new String[final_fields.size()]));
 		    
 		    // Identifying the best score in order to normalize all scores
+			
+			/*
+			 * currently it won't be used
 		    double best_score = 0;
 		    for (int i = start; i < end; i++) {
 		    	if (best_score < hits[i].score){
 					best_score = hits[i].score;
 				}
 		    }
+		    */
 		    // Updating records
 		    for (int i = start; i < end; i++) {
 		    	List <String> temp_record = new ArrayList <String> ();
@@ -129,7 +133,8 @@ public class Searcher {
 		    	for(int j=0; j < this.results.getFields().size(); j++){
 		    		String current_field = this.results.getFields().get(j);
 		    		if(current_field.equals("scoreField")){
-		    			temp_record.add(Double.toString(normalize(hits[i].score, best_score)));
+		    			//temp_record.add(Double.toString(normalize(hits[i].score, best_score)));
+		    			temp_record.add(Double.toString(hits[i].score));
 		    		} else{
 		    			temp_record.add(doc.get(current_field));
 		    		}
