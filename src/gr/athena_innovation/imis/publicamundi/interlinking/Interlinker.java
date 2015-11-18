@@ -281,22 +281,21 @@ public class Interlinker extends HttpServlet {
 	    			 true, ErrorType.MalformedRequest);
 		}
 		List <String> fields = idx.getFields();
-		if (fields != null && fields.size() > 0)
+		if (fields != null && fields.size() > 0){
+			String indexField = idx.getIndexField();
+			List <String> real_fields = new ArrayList <String> ();
+			real_fields.add(indexField);
 			
-			if(originals == true){
-				return fields;
-			}else{
-				String indexField = idx.getIndexField();
-				List <String> real_fields = new ArrayList <String> ();
-				real_fields.add(indexField);
+			if(originals == false){
 				real_fields.add("scoreField");
-				for (String field : fields){
-					if(!field.equals(indexField))
-						real_fields.add(field);
-				}
-				return real_fields;
 			}
-		else {
+			for (String field : fields){
+				if(!field.equals(indexField))
+					real_fields.add(field);
+			}
+			return real_fields;
+			
+		} else {
 			throw new InterlinkingException("Fields for index '" + index + "' could not be retrieved.", 
 	    			 false, ErrorType.InternalServerError);
 		}

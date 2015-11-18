@@ -63,7 +63,7 @@ public class Searcher {
 		    SimpleQueryParser parser =  new SimpleQueryParser(analyzer, searchField);
 		    Query query = parser.parse(queryString);
 		    
-		    this.doPagingSearch(searcher,  query, hitsPerPage, searchField, index_name);
+		    this.doPagingSearch(searcher,  query, hitsPerPage, searchField, index_name, mode);
 		    reader.close();
 	    } catch (IOException e){
 	    	throw new InterlinkingException("Problem occured when accessing index '" + index + "'.", 
@@ -75,7 +75,7 @@ public class Searcher {
 	}
 
 	private void doPagingSearch(IndexSearcher searcher, Query query, 
-				int hitsPerPage, String searchField, String index) throws IOException, InterlinkingException {
+				int hitsPerPage, String searchField, String index, String mode) throws IOException, InterlinkingException {
 	    // Collect enough docs to show 5 pages
 	    TopDocs results = searcher.search(query, 5 * hitsPerPage);
 	    ScoreDoc[] hits = results.scoreDocs;
@@ -134,7 +134,11 @@ public class Searcher {
 		    		String current_field = this.results.getFields().get(j);
 		    		if(current_field.equals("scoreField")){
 		    			//temp_record.add(Double.toString(normalize(hits[i].score, best_score)));
-		    			temp_record.add(Double.toString(hits[i].score));
+		    			if (mode.equals("search")){
+		    				temp_record.add(Double.toString(hits[i].score));
+		    			}else if (mode.equals("like")){
+		    				temp_record.add("-");
+		    			}
 		    		} else{
 		    			temp_record.add(doc.get(current_field));
 		    		}
